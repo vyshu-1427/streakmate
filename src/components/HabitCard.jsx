@@ -2,76 +2,72 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { format, isSameDay } from 'date-fns';
 import { Flame, MoreVertical, Edit, Trash2, Check, AlertTriangle } from 'lucide-react';
-import { useHabits } from '../hooks/useHabits.jsx';
+import useHabits from '../hooks/useHabits.jsx';
 
-function HabitCard({ habit, selectedDate }) {
+function HabitCard({ habit, selectedDate, refetch }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const { completeHabit, deleteHabit } = useHabits();
-  
+
   const isToday = isSameDay(selectedDate, new Date());
   const isCompleted = habit.completedDates.some(date => 
     isSameDay(new Date(date), selectedDate)
   );
-  
-  // Progress calculation for weekly habits
+
   const weeklyProgress = habit.frequency === 'weekly' 
     ? Math.min((habit.completedDates.length / habit.target) * 100, 100) 
     : 0;
-  
-  // Function to handle completion
+
   const handleCompletion = () => {
-    if (!isToday) return; // Only allow completion for today
+    if (!isToday) return;
     completeHabit(habit.id, selectedDate);
+    refetch();
   };
-  
-  // Card variants for different states
-  const cardVariants = {
-    completed: "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 shadow-lg",
-    normal: "bg-white border-gray-100 shadow hover:shadow-lg transition-shadow duration-200"
-  };
-  
+
   return (
     <motion.div
-      className={`habit-card border rounded-2xl p-6 ${isCompleted ? cardVariants.completed : cardVariants.normal}`}
+      className={`border rounded-2xl p-6 bg-white shadow-soft ${
+        isCompleted ? 'border-secondary-100' : 'border-neutral-100'
+      }`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      whileHover={{ y: -5 }}
+      whileHover={{ y: -5, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)' }}
     >
-      {/* Card Header */}
       <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
           <div 
-            className={`w-12 h-12 rounded-full flex items-center justify-center mr-3 text-2xl ${
-              isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${
+              isCompleted ? 'bg-secondary-100 text-secondary-600' : 'bg-primary-100 text-primary-600'
             }`}
           >
-            {habit.icon || <Flame size={24} />}
+            {habit.icon || <Flame size={20} />}
           </div>
           <div>
-            <h3 className="font-bold text-xl leading-tight mb-1">{habit.name}</h3>
-            <p className="text-sm text-gray-500 mb-1">
+            <h3 className="font-display font-bold text-lg">{habit.name}</h3>
+            <p className="text-sm text-neutral-500">
               {habit.frequency === 'daily' ? 'Daily' : `${habit.target}x per week`}
             </p>
             {habit.description && (
-              <p className="text-xs text-gray-400 italic max-w-xs truncate">{habit.description}</p>
+              <p className="text-xs text-neutral-400 italic max-w-[200px] truncate">{habit.description}</p>
             )}
           </div>
         </div>
-        
-        {/* Menu */}
         <div className="relative">
           <button 
-            className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+            className="p-1 text-neutral-400 hover:text-neutral-600 rounded-full hover:bg-neutral-100"
             onClick={() => setShowMenu(!showMenu)}
           >
-            <MoreVertical size={20} />
+            <MoreVertical size={18} />
           </button>
-          
           {showMenu && (
-            <div className="absolute right-0 top-8 bg-white rounded-lg shadow-lg py-2 w-36 z-10">
-              <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+            <motion.div 
+              className="absolute right-0 top-8 bg-white rounded-lg shadow-elevated py-2 w-36 z-10"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <button className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-primary-50 flex items-center">
                 <Edit size={16} className="mr-2" />
                 <span>Edit</span>
               </button>
@@ -82,59 +78,64 @@ function HabitCard({ habit, selectedDate }) {
                 <Trash2 size={16} className="mr-2" />
                 <span>Delete</span>
               </button>
-            </div>
+            </motion.div>
           )}
         </div>
       </div>
-      
-      {/* Confirm Delete Modal */}
+
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-xs flex flex-col items-center">
-            <p className="mb-4 text-center text-gray-700">Are you sure you want to delete <span className="font-bold">{habit.name}</span>?</p>
+        <motion.div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div className="bg-white rounded-xl shadow-elevated p-6 w-full max-w-sm flex flex-col items-center">
+            <p className="mb-4 text-center text-neutral-700">Are you sure you want to delete <span className="font-bold">{habit.name}</span>?</p>
             <div className="flex gap-2">
-              <button className="btn bg-gray-100 text-gray-700" onClick={() => setShowConfirm(false)}>Cancel</button>
-              <button className="btn bg-red-500 text-white" onClick={() => { deleteHabit(habit.id); setShowConfirm(false); }}>Delete</button>
+              <button className="btn bg-neutral-100 text-neutral-700" onClick={() => setShowConfirm(false)}>Cancel</button>
+              <button className="btn bg-red-500 text-white" onClick={() => { deleteHabit(habit.id); setShowConfirm(false); refetch(); }}>Delete</button>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
-      
-      {/* Streak & Progress */}
+
       <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
-          <div className="flex items-center gap-1 text-amber-500 font-semibold text-sm">
+          <div className="flex items-center gap-1 text-secondary-500 font-semibold text-sm">
             <Flame size={16} />
             <span>{habit.streak} day streak</span>
           </div>
           {habit.frequency === 'weekly' && (
-            <span className="text-xs text-gray-600">
+            <span className="text-xs text-neutral-600">
               {habit.completedDates.length}/{habit.target} this week
             </span>
           )}
         </div>
-        
         {habit.frequency === 'weekly' && (
-          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div 
-              className="h-2 bg-violet-400 rounded-full transition-all duration-300"
-              style={{ width: `${weeklyProgress}%` }}
-            ></div>
+          <div className="w-full h-2 bg-neutral-100 rounded-full overflow-hidden">
+            <motion.div 
+              className="h-2 bg-primary-400 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${weeklyProgress}%` }}
+              transition={{ duration: 0.5 }}
+            />
           </div>
         )}
       </div>
-      
-      {/* Completion Button */}
-      <button
+
+      <motion.button
         onClick={handleCompletion}
         disabled={!isToday || isCompleted}
-        className={`w-full py-2 rounded-lg font-medium flex items-center justify-center gap-2 mt-2 transition-all duration-200 ${
+        className={`w-full py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all duration-200 ${
           isCompleted
-            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-default'
+            ? 'bg-secondary-100 text-secondary-700 border border-secondary-200 cursor-default'
             : isToday
-            ? 'bg-violet-600 text-white hover:bg-violet-700'
-            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            ? 'bg-primary-600 text-white hover:bg-primary-700'
+            : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
         }`}
+        whileHover={isToday && !isCompleted ? { scale: 1.02 } : {}}
+        whileTap={isToday && !isCompleted ? { scale: 0.98 } : {}}
       >
         {isCompleted ? (
           <>
@@ -149,7 +150,7 @@ function HabitCard({ habit, selectedDate }) {
             <span>Only for Today</span>
           </>
         )}
-      </button>
+      </motion.button>
     </motion.div>
   );
 }

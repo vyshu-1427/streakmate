@@ -1,171 +1,119 @@
-import { useState, useEffect, createContext, useContext } from 'react';
-import { isSameDay, startOfToday, subDays } from 'date-fns';
-import toast from 'react-hot-toast';
-import { useAuth } from '../context/AuthContext'; 
-// Sample data for demonstration
-const DEMO_HABITS = [
-  {
-    id: '1',
-    name: 'Morning Meditation',
-    description: 'Meditate for 10 minutes after waking up',
-    frequency: 'daily',
-    streak: 7,
-    completedDates: [
-      '2023-12-09',
-      '2023-12-10',
-      '2023-12-11',
-      '2023-12-12',
-      '2023-12-13',
-      '2023-12-14',
-      new Date().toISOString().split('T')[0],
-    ],
-  },
-  {
-    id: '2',
-    name: 'Read a book',
-    description: 'Read at least 20 pages',
-    frequency: 'daily',
-    streak: 3,
-    completedDates: [
-      '2023-12-11',
-      '2023-12-12',
-      '2023-12-13',
-      '2023-12-14',
-      new Date().toISOString().split('T')[0],
-    ],
-  },
-  {
-    id: '3',
-    name: 'Exercise',
-    description: 'Workout for at least 30 minutes',
-    frequency: 'weekly',
-    target: 4,
-    streak: 2,
-    completedDates: [
-      '2023-12-10',
-      '2023-12-12',
-      '2023-12-14',
-    ],
-  }
-];
+import { useState, useEffect } from 'react';
+import { format, isSameDay, differenceInDays } from 'date-fns';
 
-// Create context
-const HabitsContext = createContext();
-
-// Provider component
-export function HabitsProvider({ children }) {
-  const { user } = useAuth();
+const useHabits = () => {
   const [habits, setHabits] = useState([]);
+  const [completedToday, setCompletedToday] = useState(0);
+  const [streakCount, setStreakCount] = useState(0);
+  const [longestStreak, setLongestStreak] = useState(0);
   const [loading, setLoading] = useState(true);
-  
-  // Load habits from localStorage
-  useEffect(() => {
+  const [error, setError] = useState(null);
+
+  const fetchHabits = async () => {
+    console.log('useHabits: Starting fetchHabits');
     setLoading(true);
-    
-    if (user) {
-      const storedHabits = localStorage.getItem(`streakmates-habits-${user.id}`);
-      
-      if (storedHabits) {
-        setHabits(JSON.parse(storedHabits));
-      } else {
-        // Use demo habits for new users
-        setHabits(DEMO_HABITS);
-        localStorage.setItem(`streakmates-habits-${user.id}`, JSON.stringify(DEMO_HABITS));
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      console.log('useHabits: Token retrieved:', token ? 'Present' : 'Missing');
+      if (!token) {
+        throw new Error('No authentication token found');
       }
-    } else {
+
+      console.log('useHabits: Fetching habits from /api/habits');
+      const response = await fetch('http://localhost:5000/api/habits', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log('useHabits: Response status:', response.status);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('useHabits: Habits data received:', data);
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch habits');
+      }
+
+      setHabits(data.habits);
+      calculateStats(data.habits);
+      setLoading(false);
+      console.log('useHabits: Habits fetched successfully, loading set to false');
+    } catch (err) {
+      console.error('useHabits: Error in fetchHabits:', err.message);
+      setError(err.message);
+      setLoading(false);
       setHabits([]);
     }
-    
-    setLoading(false);
-  }, [user]);
-  
-  // Save habits to localStorage whenever they change
-  useEffect(() => {
-    if (user && !loading) {
-      localStorage.setItem(`streakmates-habits-${user.id}`, JSON.stringify(habits));
-    }
-  }, [habits, user, loading]);
-  
-  // Add a new habit
-  const addHabit = (habit) => {
-    setHabits(prev => [...prev, habit]);
-    toast.success('Habit added successfully!');
   };
-  
-  // Complete a habit for a specific date
-  const completeHabit = (habitId, date) => {
-    setHabits(prev => 
-      prev.map(habit => {
-        if (habit.id === habitId) {
-          // Convert date to string format
-          const dateStr = date.toISOString().split('T')[0];
-          
-          // Check if already completed
-          if (habit.completedDates.includes(dateStr)) {
-            return habit;
-          }
-          
-          // Add completion and update streak
-          const yesterday = subDays(date, 1).toISOString().split('T')[0];
-          const hasYesterdayCompletion = habit.completedDates.includes(yesterday);
-          
-          return {
-            ...habit,
-            completedDates: [...habit.completedDates, dateStr],
-            streak: hasYesterdayCompletion ? habit.streak + 1 : 1,
-          };
-        }
-        return habit;
-      })
-    );
-    
-    toast.success('Habit marked as completed!');
-  };
-  
-  // Delete a habit
-  const deleteHabit = (habitId) => {
-    setHabits(prev => prev.filter(habit => habit.id !== habitId));
-    toast.success('Habit deleted successfully!');
-  };
-  
-  // Calculate stats
-  const completedToday = habits.filter(habit => 
-    habit.completedDates.some(date => 
-      isSameDay(new Date(date), startOfToday())
-    )
-  ).length;
-  
-  const streakCount = habits.length > 0 
-    ? Math.max(...habits.map(habit => habit.streak))
-    : 0;
-  
-  const longestStreak = habits.length > 0
-    ? Math.max(...habits.map(habit => habit.streak))
-    : 0;
-  
-  return (
-    <HabitsContext.Provider
-      value={{
-        habits,
-        loading,
-        addHabit,
-        completeHabit,
-        deleteHabit,
-        completedToday,
-        streakCount,
-        longestStreak,
-      }}
-    >
-      {children}
-    </HabitsContext.Provider>
-  );
-}
 
-// Custom hook to use the context
-export function useHabits() {
-  const context = useContext(HabitsContext);
-  if (!context) {
-    throw new Error('useHabits must be used within a HabitsProvider');
-  }
-  return context;
-}
+  const calculateStats = (habits) => {
+    console.log('useHabits: Calculating stats for habits:', habits);
+    const today = format(new Date(), 'yyyy-MM-dd');
+    let todayCount = 0;
+    let currentStreak = 0;
+    let maxStreak = 0;
+
+    habits.forEach((habit) => {
+      console.log(`useHabits: Processing habit: ${habit.name}, frequency: ${habit.frequency}`);
+      // Count habits completed today
+      if (habit.completedDates.includes(today)) {
+        todayCount++;
+      }
+
+      // Calculate streaks
+      let streak = 0;
+      let currentDate = new Date();
+      let dates = [...habit.completedDates].sort((a, b) => new Date(b) - new Date(a));
+      console.log(`useHabits: Sorted completedDates for ${habit.name}:`, dates);
+
+      if (habit.frequency === 'daily') {
+        for (let i = 0; i < dates.length; i++) {
+          if (i === 0 && isSameDay(new Date(dates[i]), currentDate)) {
+            streak++;
+            currentDate = subDays(currentDate, 1);
+          } else if (i > 0 && differenceInDays(new Date(dates[i - 1]), new Date(dates[i])) === 1) {
+            streak++;
+          } else {
+            break;
+          }
+        }
+      } else if (habit.frequency === 'weekly') {
+        const weeks = {};
+        dates.forEach((date) => {
+          const weekStart = format(new Date(date), 'yyyy-WW');
+          weeks[weekStart] = (weeks[weekStart] || 0) + 1;
+        });
+        console.log(`useHabits: Weekly completions for ${habit.name}:`, weeks);
+
+        let currentWeek = format(new Date(), 'yyyy-WW');
+        while (weeks[currentWeek] && weeks[currentWeek] >= (habit.target || 1)) {
+          streak++;
+          currentWeek = format(subDays(new Date(currentWeek), 7), 'yyyy-WW');
+        }
+      }
+
+      console.log(`useHabits: Streak for ${habit.name}: ${streak}`);
+      if (streak > maxStreak) maxStreak = streak;
+      if (habit.completedDates.includes(today)) {
+        currentStreak = Math.max(currentStreak, streak);
+      }
+    });
+
+    setCompletedToday(todayCount);
+    setStreakCount(currentStreak);
+    setLongestStreak(maxStreak);
+    console.log('useHabits: Stats updated - completedToday:', todayCount, 'streakCount:', currentStreak, 'longestStreak:', maxStreak);
+  };
+
+  useEffect(() => {
+    console.log('useHabits: useEffect triggered, calling fetchHabits');
+    fetchHabits();
+  }, []);
+
+  return { habits, completedToday, streakCount, longestStreak, loading, error, refetch: fetchHabits };
+};
+
+export default useHabits;

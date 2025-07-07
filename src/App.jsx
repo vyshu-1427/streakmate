@@ -1,50 +1,37 @@
 import { Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './context/AuthContext'; // Update to './context/useAuth' if refactored
 import './App.css';
-
-// Pages
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
-import Register from './pages/Register';
+// import Register from './pages/Register';
+import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import HabitCircles from './pages/HabitCircles';
 import NotFound from './pages/NotFound';
-
-// Components
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
-import AppProvider from './components/AppProvider';
 
 function App() {
-  const { loadUser } = useAuth();
-
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
-
+  console.log('App.jsx: Rendering Routes');
   return (
-    <AppProvider>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      {/* <Route path="/register" element={<Register />} /> */}
 
-        {/* Protected routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<Layout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/circles" element={<HabitCircles />} />
-          </Route>
-        </Route>
+      {/* Protected Routes */}
+      <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/circles" element={<ProtectedRoute><HabitCircles /></ProtectedRoute>} />
+      </Route>
 
-        {/* 404 Not Found */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AppProvider>
+      {/* 404 Route */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 

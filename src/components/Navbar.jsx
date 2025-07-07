@@ -1,245 +1,213 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, User, LogOut, LayoutDashboard, Activity, Settings } from 'lucide-react';
+import { Menu, X, User, LogOut, LayoutDashboard, Activity } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
-  
-  // Handle scroll effect
+  const navigate = useNavigate();
+
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 20) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
+      setScrolled(window.scrollY > 20);
     };
-    
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-  
-  // Handle closing the menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (isMenuOpen && !e.target.closest('#main-menu') && !e.target.closest('#menu-button')) {
-        setIsMenuOpen(false);
-      }
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isMenuOpen]);
-  
-  // Close menu when route changes
+
   useEffect(() => {
     setIsMenuOpen(false);
   }, [location.pathname]);
-  
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
+  const navLinks = [
+    { to: '/', label: 'Home' },
+    ...(isAuthenticated ? [
+      { to: '/dashboard', label: 'Dashboard' },
+      { to: '/circles', label: 'Circles' },
+    ] : []),
+  ];
+
+  const dropdownItems = isAuthenticated ? [
+    { to: '/profile', label: 'Profile', icon: <User size={18} /> },
+    { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+    { onClick: handleLogout, label: 'Logout', icon: <LogOut size={18} /> },
+  ] : [];
+
   return (
-    <header 
+    <motion.header
       className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-        scrolled 
-          ? 'bg-white shadow-md py-3' 
-          : 'bg-transparent py-5'
+        scrolled ? 'bg-white shadow-md py-2' : 'bg-gradient-to-r from-primary-50/80 to-neutral-50/80 backdrop-blur-md py-3'
       }`}
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.5 }}
     >
-      <div className="container mx-auto px-6">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <nav className="flex justify-between items-center">
-          {/* Logo */}
-            <Link to="/" className="flex items-center mb-4">
-              {/* <img src="/logo.jpg" alt="StreakMates" className="h-8 w-8 mr-2 rounded" /> */}
-              <span className="font-bold text-lg flex items-center">StreakMates <span className="ml-1 text-xl">🔥</span></span>
-            </Link>
-          
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link
-              to="/"
-              className={`text-gray-700 hover:text-violet-600 font-medium ${
-                location.pathname === '/' && 'text-violet-600'
-              }`}
-            >
-              Home
-            </Link>
-            
+          <Link to="/" className="flex items-center" aria-label="StreakMates Home">
+            <span className="font-display font-bold text-xl text-neutral-900 tracking-tight">
+              StreakMates <span className="text-primary-600">🔥</span>
+            </span>
+          </Link>
+
+          <div className="hidden md:flex items-center space-x-6">
+            {navLinks.map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                className={`text-neutral-700 hover:text-primary-600 font-medium transition-colors ${
+                  location.pathname === to ? 'text-primary-600 font-semibold' : ''
+                }`}
+                aria-current={location.pathname === to ? 'page' : undefined}
+              >
+                {label}
+              </Link>
+            ))}
             {isAuthenticated ? (
-              <>
-                <Link
-                  to="/dashboard"
-                  className={`text-gray-700 hover:text-violet-600 font-medium ${
-                    location.pathname === '/dashboard' && 'text-violet-600'
-                  }`}
+              <div className="relative">
+                <button
+                  className="flex items-center gap-2 text-neutral-700 hover:text-primary-600 font-medium transition-colors"
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  aria-expanded={isMenuOpen}
+                  aria-label="User menu"
                 >
-                  Dashboard
-                </Link>
-                <Link
-                  to="/circles"
-                  className={`text-gray-700 hover:text-violet-600 font-medium ${
-                    location.pathname === '/circles' && 'text-violet-600'
-                  }`}
-                >
-                  Circles
-                </Link>
-                
-                {/* User menu */}
-                <div className="relative">
-                  <button
-                    id="menu-button"
-                    className="flex items-center gap-2 text-gray-700 hover:text-violet-600 font-medium"
-                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  <span className="truncate max-w-[120px]">{user?.name || 'User'}</span>
+                </button>
+                {isMenuOpen && (
+                  <motion.div
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-elevated py-2 z-50 border border-neutral-100"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    {/* <img 
-                      src={user?.avatar || 'https://i.pravatar.cc/150?img=1'} 
-                      alt="Profile" 
-                      className="h-8 w-8 rounded-full border-2 border-violet-200"
-                    /> */}
-                    <span className="hidden lg:block">{user?.name || 'User'}</span>
-                  </button>
-                  
-                  <AnimatePresence>
-                    {isMenuOpen && (
-                      <motion.div
-                        id="main-menu"
-                        className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-50"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        transition={{ duration: 0.2 }}
-                      >
+                    {dropdownItems.map(({ to, onClick, label, icon }, index) => (
+                      to ? (
                         <Link
-                          to="/profile"
-                          className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-violet-50 hover:text-violet-600"
+                          key={index}
+                          to={to}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 hover:bg-primary-50 hover:text-primary-600"
+                          onClick={() => setIsMenuOpen(false)}
                         >
-                          <User size={18} />
-                          <span>Profile</span>
+                          {icon}
+                          {label}
                         </Link>
-                        <Link
-                          to="/dashboard"
-                          className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-violet-50 hover:text-violet-600"
-                        >
-                          <LayoutDashboard size={18} />
-                          <span>Dashboard</span>
-                        </Link>
+                      ) : (
                         <button
-                          onClick={logout}
-                          className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-violet-50 hover:text-violet-600 w-full text-left"
+                          key={index}
+                          onClick={() => { onClick(); setIsMenuOpen(false); }}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 hover:bg-primary-50 hover:text-primary-600 w-full text-left"
                         >
-                          <LogOut size={18} />
-                          <span>Logout</span>
+                          {icon}
+                          {label}
                         </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </>
+                      )
+                    ))}
+                  </motion.div>
+                )}
+              </div>
             ) : (
               <>
-                <Link to="/login" className="btn-outline">
+                <Link
+                  to="/login"
+                  className="text-neutral-700 hover:text-primary-600 font-medium transition-colors"
+                >
                   Login
                 </Link>
-                <Link to="/register" className="btn-primary">
+                <Link
+                  to="/register"
+                  className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors font-medium"
+                >
                   Get Started
                 </Link>
               </>
             )}
           </div>
-          
-          {/* Mobile Menu Button */}
+
           <button
-            id="menu-button"
-            className="md:hidden text-gray-700 hover:text-violet-600"
+            className="md:hidden text-neutral-700 hover:text-primary-600 p-2 rounded-lg"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isMenuOpen}
           >
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </nav>
-      </div>
-      
-      {/* Mobile Menu */}
-      <AnimatePresence>
+
         {isMenuOpen && (
           <motion.div
-            id="main-menu"
-            className="md:hidden bg-white border-t fixed inset-x-0 top-[57px] z-30 overflow-y-auto"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-white fixed inset-x-0 top-14 z-30 border-t border-neutral-100 shadow-md"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="container mx-auto px-6 py-4">
-              <div className="flex flex-col space-y-4">
-                <Link
-                  to="/"
-                  className="px-4 py-2 text-gray-700 hover:bg-violet-50 hover:text-violet-600 rounded"
-                >
-                  Home
-                </Link>
-                
+            <div className="container mx-auto px-4 py-4">
+              <div className="flex flex-col space-y-2">
+                {navLinks.map(({ to, label }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    className={`px-4 py-2 text-neutral-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg transition-colors ${
+                      location.pathname === to ? 'bg-primary-50 text-primary-600' : ''
+                    }`}
+                    onClick={() => setIsMenuOpen(false)}
+                    aria-current={location.pathname === to ? 'page' : undefined}
+                  >
+                    {label}
+                  </Link>
+                ))}
                 {isAuthenticated ? (
                   <>
-                    <div className="border-t border-gray-100 pt-4 mb-2 px-4">
-                      <div className="flex items-center">
-                        {/* <img 
-                          src={user?.avatar || 'https://i.pravatar.cc/150?img=1'} 
-                          alt="Profile" 
-                          className="h-10 w-10 rounded-full border-2 border-violet-200 mr-3"
-                        /> */}
-                        <div>
-                          <p className="font-medium">{user?.name || 'User'}</p>
-                          <p className="text-sm text-gray-500">{user?.email || 'user@example.com'}</p>
-                        </div>
-                      </div>
+                    <div className="border-t border-neutral-200 my-2" />
+                    <div className="px-4 py-2">
+                      <p className="font-medium text-neutral-900 truncate">{user?.name || 'User'}</p>
+                      <p className="text-xs text-neutral-500 truncate">{user?.email || 'user@example.com'}</p>
                     </div>
-                    
-                    <Link
-                      to="/dashboard"
-                      className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-violet-50 hover:text-violet-600 rounded"
-                    >
-                      <LayoutDashboard size={18} />
-                      <span>Dashboard</span>
-                    </Link>
-                    
-                    <Link
-                      to="/circles"
-                      className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-violet-50 hover:text-violet-600 rounded"
-                    >
-                      <Activity size={18} />
-                      <span>Habit Circles</span>
-                    </Link>
-                    
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-violet-50 hover:text-violet-600 rounded"
-                    >
-                      <User size={18} />
-                      <span>Profile</span>
-                    </Link>
-                    
-                    <button
-                      onClick={logout}
-                      className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-violet-50 hover:text-violet-600 rounded text-left"
-                    >
-                      <LogOut size={18} />
-                      <span>Logout</span>
-                    </button>
+                    {dropdownItems.map(({ to, onClick, label, icon }, index) => (
+                      to ? (
+                        <Link
+                          key={index}
+                          to={to}
+                          className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          {icon}
+                          {label}
+                        </Link>
+                      ) : (
+                        <button
+                          key={index}
+                          onClick={() => { onClick(); setIsMenuOpen(false); }}
+                          className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg w-full text-left"
+                        >
+                          {icon}
+                          {label}
+                        </button>
+                      )
+                    ))}
                   </>
                 ) : (
                   <>
+                    <div className="border-t border-neutral-200 my-2" />
                     <Link
                       to="/login"
-                      className="px-4 py-2 text-gray-700 hover:bg-violet-50 hover:text-violet-600 rounded"
+                      className="px-4 py-2 text-neutral-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg"
+                      onClick={() => setIsMenuOpen(false)}
                     >
                       Login
                     </Link>
                     <Link
                       to="/register"
-                      className="btn-primary flex justify-center mx-4"
+                      className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex justify-center mx-4"
+                      onClick={() => setIsMenuOpen(false)}
                     >
                       Get Started
                     </Link>
@@ -249,8 +217,8 @@ function Navbar() {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
-    </header>
+      </div>
+    </motion.header>
   );
 }
 

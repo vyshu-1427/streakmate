@@ -18,6 +18,7 @@ const Signup = () => {
     try {
       const res = await axios.post("http://localhost:5000/api/auth/signup", form);
       localStorage.setItem("token", res.data.token);
+      console.log(res);
       navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong");

@@ -1,148 +1,97 @@
-import { createContext, useState, useContext, useCallback, useMemo } from 'react';
-import toast from 'react-hot-toast';
+// AuthContext.jsx
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import axios from "axios";
+
+axios.defaults.baseURL = "http://localhost:5000";
+
+const setAuthTokenHeader = (token) => {
+  if (token) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    console.log("Axios default header set with token:", token);
+  } else {
+    delete axios.defaults.headers.common['Authorization'];
+    console.log("Axios default header removed");
+  }
+};
 
 const AuthContext = createContext();
 
-// Mock user data - would come from API in a real app
-const DEMO_USERS = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    password: 'password123',
-    avatar: 'https://i.pravatar.cc/150?img=1',
-    level: 12,
-    xp: 750,
-    totalXp: 1000,
-    joinedDate: '2023-10-15',
-    badges: ['Early Bird', '7-Day Champ', 'Consistency Master'],
-  },
-];
-
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // Load user from localStorage
-  const loadUser = useCallback(() => {
-    setLoading(true);
-    const storedUser = localStorage.getItem('streakmates-user');
-    
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    
-    setLoading(false);
-  }, []);
-  
-  // Login
-  const login = useCallback((email, password) => {
-    if (!email || !password) {
-      toast.error('Please provide email and password');
-      return false;
-    }
-    
-    // Find user
-    const foundUser = DEMO_USERS.find(
-      (u) => u.email === email && u.password === password
-    );
-    
-    if (!foundUser) {
-      toast.error('Invalid credentials');
-      return false;
-    }
-    
-    // Create user object (without password)
-    const { password: _, ...userWithoutPassword } = foundUser;
-    
-    // Store in localStorage
-    localStorage.setItem('streakmates-user', JSON.stringify(userWithoutPassword));
-    setUser(userWithoutPassword);
-    
-    toast.success('Login successful!');
-    return true;
-  }, []);
-  
-  // Register
-  const register = useCallback((name, email, password) => {
-    if (!name || !email || !password) {
-      toast.error('Please fill all fields');
-      return false;
-    }
-    
-    // Check if user already exists
-    if (DEMO_USERS.some((u) => u.email === email)) {
-      toast.error('User already exists');
-      return false;
-    }
-    
-    // In a real app, this would be an API call
-    // For demo, we'll just pretend to create a user
-    const newUser = {
-      id: Date.now().toString(),
-      name,
-      email,
-      // Don't store the password in state, just for demo
-      avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
-      level: 1,
-      xp: 0,
-      totalXp: 100,
-      joinedDate: new Date().toISOString().split('T')[0],
-      badges: ['Newcomer'],
-    };
-    
-    // Store in localStorage 
-    localStorage.setItem('streakmates-user', JSON.stringify(newUser));
-    setUser(newUser);
-    
-    toast.success('Registration successful!');
-    return true;
-  }, []);
-  
-  // Logout
-  const logout = useCallback(() => {
-    localStorage.removeItem('streakmates-user');
-    setUser(null);
-    toast.success('Logged out successfully');
-  }, []);
-  
-  // Update user
-  const updateUser = useCallback((updatedData) => {
-    if (!user) return false;
-    
-    const updatedUser = { ...user, ...updatedData };
-    localStorage.setItem('streakmates-user', JSON.stringify(updatedUser));
-    setUser(updatedUser);
-    
-    toast.success('Profile updated successfully');
-    return true;
-  }, [user]);
-  
-  // Check if user is authenticated
-  const isAuthenticated = useMemo(() => !!user, [user]);
-  
-  // Context value
-  const value = useMemo(
-    () => ({
-      user,
-      loading,
-      login,
-      register,
-      logout,
-      updateUser,
-      isAuthenticated,
-      loadUser,
-    }),
-    [user, loading, login, register, logout, updateUser, isAuthenticated, loadUser]
-  );
-  
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [error, setError] = useState(null);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const fetchUser = useCallback(async () => {
+    try {
+      console.log("Fetching user from /api/auth/me");
+      const response = await axios.get("/api/auth/me");
+      console.log("fetchUser response:", response.data);
+      setUser(response.data);
+      setIsAuthenticated(true);
+      setError(null);
+      return true;
+    } catch (err) {
+      console.error("Auth error during fetchUser:", err.response?.data || err.message);
+      setUser(null);
+      setIsAuthenticated(false);
+      setAuthTokenHeader(null);
+      localStorage.removeItem("token");
+      setError(err.response?.data?.message || "Failed to fetch user");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const login = useCallback(async (token) => {
+    if (token) {
+      console.log("Login: Setting token and fetching user");
+      localStorage.setItem("token", token);
+      setAuthTokenHeader(token);
+      const success = await fetchUser();
+      return success;
+    }
+    setError("No token provided");
+    return false;
+  }, [fetchUser]);
+
+  const logout = useCallback(() => {
+    console.log("Logging out");
+    localStorage.removeItem("token");
+    setAuthTokenHeader(null);
+    setUser(null);
+    setIsAuthenticated(false);
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    console.log("Initial load: Token found:", !!token);
+    if (token) {
+      setAuthTokenHeader(token);
+      fetchUser();
+    } else {
+      setLoading(false);
+    }
+  }, [fetchUser]);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        login,
+        logout,
+        loading,
+        error,
+        fetchUser
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
+
+// Named export for useAuth
+export const useAuth = () => useContext(AuthContext);

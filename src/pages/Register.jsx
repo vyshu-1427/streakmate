@@ -53,26 +53,18 @@ function Register() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
+    
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    
+    setError("");
+
     try {
-      const { name, email, password } = formData;
-      const success = register(name, email, password);
-      
-      if (success) {
-        // Redirect to dashboard
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
-    } finally {
-      setIsLoading(false);
+      const res = await axios.post("http://localhost:5000/api/auth/signup", form);
+      localStorage.setItem("token", res.data.token);
+      console.log(res);
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.response?.data?.message || "Something went wrong");
     }
   };
   

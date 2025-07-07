@@ -18,6 +18,11 @@ const Login = () => {
     try {
       const res = await axios.post("http://localhost:5000/api/auth/login", form);
       localStorage.setItem("token", res.data.token);
+      console.log(res);
+      setTimeout(() => {
+        
+        navigate("/dashboard");
+      }, 500);
       navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
