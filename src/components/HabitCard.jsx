@@ -73,7 +73,11 @@ function HabitCard({ habit, selectedDate, refetch }) {
               </button>
               <button 
                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
-                onClick={() => { setShowConfirm(true); setShowMenu(false); }}
+                onClick={() => { 
+                  console.log(`Deleting habit with ID: ${habit._id}`); // Debugging line
+                  setShowConfirm(true); 
+                  setShowMenu(false); 
+                }}
               >
                 <Trash2 size={16} className="mr-2" />
                 <span>Delete</span>
@@ -94,7 +98,11 @@ function HabitCard({ habit, selectedDate, refetch }) {
             <p className="mb-4 text-center text-neutral-700">Are you sure you want to delete <span className="font-bold">{habit.name}</span>?</p>
             <div className="flex gap-2">
               <button className="btn bg-neutral-100 text-neutral-700" onClick={() => setShowConfirm(false)}>Cancel</button>
-              <button className="btn bg-red-500 text-white" onClick={() => { deleteHabit(habit.id); setShowConfirm(false); refetch(); }}>Delete</button>
+              <button className="btn bg-red-500 text-white" onClick={() => { 
+                deleteHabit(habit._id); 
+                setShowConfirm(false); 
+                refetch(); 
+              }}>Delete</button>
             </div>
           </div>
         </motion.div>

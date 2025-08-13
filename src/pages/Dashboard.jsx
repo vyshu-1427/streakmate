@@ -40,7 +40,7 @@ const DateButton = ({ date, isToday, isSelected, onClick }) => (
   </motion.button>
 );
 
-function Dashboard() {
+function Dashboard() { 
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [user, setUser] = useState(null);
@@ -269,7 +269,7 @@ function Dashboard() {
         )}
 
         <AddHabitModal
-          isOpen={showAddModal}
+          open={showAddModal}
           onClose={() => setShowAddModal(false)}
           onAdd={handleAddHabit}
         />

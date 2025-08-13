@@ -49,6 +49,29 @@ const useHabits = () => {
     }
   };
 
+  const deleteHabit = async (id) => {
+    console.log(`useHabits: Attempting to delete habit with id: ${id}`);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/habits/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      console.log('useHabits: Delete response:', data);
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to delete habit');
+      }
+      // Refetch habits after deletion
+      fetchHabits();
+    } catch (err) {
+      console.error('Error deleting habit:', err);
+      setError(err.message);
+    }
+  };
+
   const calculateStats = (habits) => {
     console.log('useHabits: Calculating stats for habits:', habits);
     const today = format(new Date(), 'yyyy-MM-dd');
@@ -113,7 +136,7 @@ const useHabits = () => {
     fetchHabits();
   }, []);
 
-  return { habits, completedToday, streakCount, longestStreak, loading, error, refetch: fetchHabits };
+  return { habits, completedToday, streakCount, longestStreak, loading, error, refetch: fetchHabits, deleteHabit };
 };
 
 export default useHabits;

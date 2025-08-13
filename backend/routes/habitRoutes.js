@@ -13,7 +13,7 @@ class ApiError extends Error {
 
 // Input validation function
 const validateInput = (data, requiredFields) => {
-  const missingFields = requiredFields.filter((field) => !data[field]);
+  const missingFields = requiredFields.filter((field) => !data[field] && data[field] !== '');
   if (missingFields.length > 0) {
     throw new ApiError(400, `Missing required fields: ${missingFields.join(', ')}`);
   }
@@ -88,7 +88,7 @@ const getHabits = async (req, res) => {
 };
 
 const createHabit = async (req, res) => {
-  const { name, description, frequency, target } = req.body;
+  const { name, description, frequency, target, icon } = req.body;
   try {
     validateInput(req.body, ['name', 'frequency']);
     const habitData = {
@@ -97,6 +97,7 @@ const createHabit = async (req, res) => {
       description: description || '',
       frequency,
       target: frequency === 'weekly' ? target || 1 : 1,
+      icon: icon || 'Flame', // Default to 'Flame' if icon is not provided
       completedDates: [],
       streak: 0,
     };
@@ -136,7 +137,7 @@ const updateHabitCompletion = async (req, res) => {
       habit.completedDates = habit.completedDates.filter((d) => d !== date);
     }
 
-    habit.streak = calculateStreak(habit.completedDates, habit.frequency, habit.target);
+    habit.streak = calculateStreak(habit.completedDates, habit.frequency, hatarget);
     await habit.save();
 
     res.json({

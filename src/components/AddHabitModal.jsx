@@ -1,166 +1,157 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Flame, Book, Dumbbell, Coffee, FileText, Brain, Plus } from 'lucide-react';
+import React, { useState } from 'react';
+import axios from 'axios';
+import { Flame, Book, Dumbbell, Coffee, FileText, Brain } from 'lucide-react';
 
-function AddHabitModal({ isOpen, onClose, onAdd }) {
+const iconOptions = [
+  { icon: <Flame />, label: 'Flame', value: 'Flame' },
+  { icon: <Book />, label: 'Book', value: 'Book' },
+  { icon: <Dumbbell />, label: 'Workout', value: 'Workout' },
+  { icon: <Coffee />, label: 'Coffee', value: 'Coffee' },
+  { icon: <FileText />, label: 'Notes', value: 'Notes' },
+  { icon: <Brain />, label: 'Mindfulness', value: 'Mindfulness' },
+];
+
+const AddHabitModal = ({ open, onClose, onAdd }) => {
   const [habitData, setHabitData] = useState({
     name: '',
     description: '',
     frequency: 'daily',
     target: 1,
-    icon: <Flame />,
+    icon: iconOptions[0],
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setHabitData(prev => ({ ...prev, [name]: value }));
+    setHabitData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onAdd({
-      ...habitData,
-      id: Date.now().toString(),
+
+    const newHabit = {
+      name: habitData.name,
+      description: habitData.description,
+      frequency: habitData.frequency,
+      target: Number(habitData.target),
+      icon: habitData.icon?.value || 'Flame',
       streak: 0,
       completedDates: [],
-    });
-    setHabitData({
-      name: '',
-      description: '',
-      frequency: 'daily',
-      target: 1,
-      icon: <Flame />,
-    });
-    onClose();
+    };
+
+    console.log('Submitting new habit:', newHabit); // Debugging line
+    if (!newHabit.name || !newHabit.frequency) {
+        throw new Error('Missing required fields: name, frequency');
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found. Please log in.');
+      }
+      const res = await axios.post('http://localhost:5000/api/habits', newHabit, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      onAdd(res.data);
+      setHabitData({
+        name: '',
+        description: '',
+        frequency: 'daily',
+        target: 1,
+        icon: iconOptions[0],
+      });
+      onClose();
+    } catch (err) {
+      console.error('Error adding habit:', err);
+      alert(err.message || 'Failed to add habit. Please try again.');
+    }
   };
 
-  const iconOptions = [
-    { icon: <Flame />, label: 'Flame' },
-    { icon: <Book />, label: 'Book' },
-    { icon: <Dumbbell />, label: 'Workout' },
-    { icon: <Coffee />, label: 'Coffee' },
-    { icon: <FileText />, label: 'Notes' },
-    { icon: <Brain />, label: 'Mindfulness' },
-  ];
+  if (!open) return null;
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <motion.div
-            className="w-full max-w-md bg-white rounded-xl shadow-elevated"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="flex justify-between items-center p-6 border-b border-neutral-100">
-              <h2 className="text-xl font-display font-bold text-neutral-900">Add New Habit</h2>
-              <button 
-                onClick={onClose}
-                className="text-neutral-400 hover:text-neutral-600"
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-4">Add New Habit</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            name="name"
+            placeholder="Habit name"
+            value={habitData.name}
+            onChange={handleChange}
+            required
+            className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
+          <textarea
+            name="description"
+            placeholder="Description"
+            value={habitData.description}
+            onChange={handleChange}
+            className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows="4"
+          />
+
+          <div className="flex gap-2 flex-wrap">
+            {iconOptions.map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                className={`p-2 border rounded ${
+                  habitData.icon.value === option.value
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white text-black border-gray-300'
+                } hover:bg-blue-100`}
+                onClick={() => setHabitData((prev) => ({ ...prev, icon: option }))}
               >
-                <X size={24} />
+                {option.icon}
               </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6">
-              <div className="mb-4">
-                <label className="block text-neutral-700 font-medium mb-2">Habit Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={habitData.name}
-                  onChange={handleChange}
-                  placeholder="e.g., Morning Meditation"
-                  className="w-full px-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-300"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-neutral-700 font-medium mb-2">Description (Optional)</label>
-                <textarea
-                  name="description"
-                  value={habitData.description}
-                  onChange={handleChange}
-                  placeholder="Why do you want to build this habit?"
-                  className="w-full px-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none h-24"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-neutral-700 font-medium mb-2">Icon</label>
-                <div className="grid grid-cols-6 gap-2">
-                  {iconOptions.map((option, index) => (
-                    <motion.button
-                      key={index}
-                      type="button"
-                      className={`flex items-center justify-center p-3 rounded-lg border ${
-                        habitData.icon.type === option.icon.type
-                          ? 'bg-primary-100 border-primary-300'
-                          : 'border-neutral-200 hover:border-primary-300'
-                      }`}
-                      onClick={() => setHabitData(prev => ({ ...prev, icon: option.icon }))}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      {option.icon}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-              <div className="mb-4">
-                <label className="block text-neutral-700 font-medium mb-2">Frequency</label>
-                <select
-                  name="frequency"
-                  value={habitData.frequency}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-300"
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                </select>
-              </div>
-              {habitData.frequency === 'weekly' && (
-                <div className="mb-4">
-                  <label className="block text-neutral-700 font-medium mb-2">Target (days per week)</label>
-                  <select
-                    name="target"
-                    value={habitData.target}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-300"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7].map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="flex justify-end gap-2 mt-6">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex items-center gap-2"
-                >
-                  <Plus size={20} />
-                  <span>Add Habit</span>
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="number"
+              name="target"
+              placeholder="Target Days"
+              value={habitData.target}
+              onChange={handleChange}
+              min={1}
+              required
+              className="w-1/2 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+
+            <select
+              name="frequency"
+              value={habitData.frequency}
+              onChange={handleChange}
+              className="w-1/2 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+          >
+            Add Habit
+          </button>
+        </form>
+
+        <button
+          onClick={onClose}
+          className="mt-4 text-sm text-gray-500 hover:text-gray-700"
+        >
+          Close
+        </button>
+      </div>
+    </div>
   );
-}
+};
 
 export default AddHabitModal;
