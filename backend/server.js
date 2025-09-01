@@ -4,6 +4,7 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import authRoutes from './routes/authRoutes.js';
 import habitRoutes from './routes/habitRoutes.js';
+import streakRoutes from './routes/streakRoutes.js';
 
 dotenv.config();
 
@@ -14,8 +15,10 @@ app.use(express.json());
 app.use(cors());
 
 // Routes
+
 app.use('/api/auth', authRoutes);
 app.use('/api/habits', habitRoutes);
+app.use('/api/streaks', streakRoutes);
 
 // Connect to MongoDB
 mongoose

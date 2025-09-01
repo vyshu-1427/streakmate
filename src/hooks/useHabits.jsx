@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, isSameDay, differenceInDays } from 'date-fns';
+import { format, isSameDay, differenceInDays, subDays } from 'date-fns';
 
 const useHabits = () => {
   const [habits, setHabits] = useState([]);
@@ -46,6 +46,31 @@ const useHabits = () => {
       setError(err.message);
       setLoading(false);
       setHabits([]);
+    }
+  };
+
+  const completeHabit = async (id, date) => {
+    console.log(`useHabits: Attempting to complete habit with id: ${id} for date: ${date}`);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/habits/${id}/complete`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ date: format(new Date(date), 'yyyy-MM-dd'), completed: true }),
+      });
+      const data = await response.json();
+      console.log('useHabits: Complete response:', data);
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to complete habit');
+      }
+      // Refetch habits after completion
+      await fetchHabits();
+    } catch (err) {
+      console.error('Error completing habit:', err);
+      setError(err.message);
     }
   };
 
@@ -136,7 +161,7 @@ const useHabits = () => {
     fetchHabits();
   }, []);
 
-  return { habits, completedToday, streakCount, longestStreak, loading, error, refetch: fetchHabits, deleteHabit };
+  return { habits, completedToday, streakCount, longestStreak, loading, error, refetch: fetchHabits, deleteHabit, completeHabit };
 };
 
 export default useHabits;

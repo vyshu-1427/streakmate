@@ -18,9 +18,9 @@ function HabitCard({ habit, selectedDate, refetch }) {
     ? Math.min((habit.completedDates.length / habit.target) * 100, 100) 
     : 0;
 
-  const handleCompletion = () => {
+  const handleCompletion = async () => {
     if (!isToday) return;
-    completeHabit(habit.id, selectedDate);
+    await completeHabit(habit._id, selectedDate);
     refetch();
   };
 

@@ -131,13 +131,29 @@ const updateHabitCompletion = async (req, res) => {
       throw new ApiError(404, 'Habit not found');
     }
 
+    // Only allow marking as completed if 24 hours have passed since last completion for this habit
     if (completed) {
-      habit.completedDates = [...new Set([...habit.completedDates, date])];
+      // Find the most recent completion date
+      const sortedDates = [...habit.completedDates].sort((a, b) => new Date(b) - new Date(a));
+      const lastCompleted = sortedDates.length > 0 ? new Date(sortedDates[0]) : null;
+      const currentDate = new Date(date);
+      let canComplete = true;
+      if (lastCompleted) {
+        // Check if 24 hours have passed since last completion
+        const diffMs = currentDate - lastCompleted;
+        if (diffMs < 24 * 60 * 60 * 1000 && format(currentDate, 'yyyy-MM-dd') !== format(lastCompleted, 'yyyy-MM-dd')) {
+          canComplete = false;
+        }
+      }
+      if (!habit.completedDates.includes(date) && canComplete) {
+        habit.completedDates.push(date);
+      }
     } else {
       habit.completedDates = habit.completedDates.filter((d) => d !== date);
     }
 
-    habit.streak = calculateStreak(habit.completedDates, habit.frequency, hatarget);
+    // Always recalculate streak after updating completedDates
+    habit.streak = calculateStreak(habit.completedDates, habit.frequency, habit.target);
     await habit.save();
 
     res.json({
