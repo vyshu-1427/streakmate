@@ -11,7 +11,7 @@ function HabitCircles() {
     privacy: 'public',
   });
 
-  const myCircles = [
+  const initialMyCircles = [
     {
       id: 1,
       name: 'Morning Routine Masters',
@@ -29,6 +29,8 @@ function HabitCircles() {
       image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=800&q=80',
     },
   ];
+  const [myCirclesState, setMyCirclesState] = useState(initialMyCircles);
+  const [editingCircleId, setEditingCircleId] = useState(null);
 
   const discoverCircles = [
     {
@@ -64,13 +66,38 @@ function HabitCircles() {
 
   const handleCreateCircle = (e) => {
     e.preventDefault();
-    // TODO: Implement API call to create circle
-    console.log('Creating circle:', circleData);
+    // local create/edit behaviour
+    if (editingCircleId) {
+      setMyCirclesState(prev => prev.map(c => c.id === editingCircleId ? { ...c, ...circleData } : c));
+      setEditingCircleId(null);
+    } else {
+      const newCircle = {
+        id: Date.now(),
+        name: circleData.name,
+        description: circleData.description,
+        privacy: circleData.privacy,
+        members: 1,
+        habits: [],
+        image: '',
+      };
+      setMyCirclesState(prev => [newCircle, ...prev]);
+    }
     setCircleData({ name: '', description: '', privacy: 'public' });
     setShowCreateModal(false);
   };
 
-  const CircleCard = ({ circle }) => (
+  const handleEditCircle = (circle) => {
+    setCircleData({ name: circle.name, description: circle.description || '', privacy: circle.privacy || 'public' });
+    setEditingCircleId(circle.id);
+    setShowCreateModal(true);
+  };
+
+  const handleDeleteCircle = (id) => {
+    if (!window.confirm('Delete this circle?')) return;
+    setMyCirclesState(prev => prev.filter(c => c.id !== id));
+  };
+
+  const CircleCard = ({ circle, onEdit, onDelete }) => (
     <motion.div
       className="bg-white rounded-xl shadow-soft overflow-hidden flex flex-col"
       whileHover={{ y: -4, boxShadow: '0 6px 20px rgba(0, 0, 0, 0.1)' }}
@@ -84,7 +111,7 @@ function HabitCircles() {
           loading="lazy"
         />
       </div>
-      <div className="p-4 flex-1 flex flex-col">
+  <div className="p-4 flex-1 flex flex-col">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-display font-semibold text-base truncate">{circle.name}</h3>
           {circle.privacy === 'private' ? (
@@ -100,16 +127,16 @@ function HabitCircles() {
         <p className="text-xs text-neutral-500 mb-4 line-clamp-2">
           {circle.habits.join(', ')}
         </p>
-        <button
-          className={`mt-auto py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
-            activeTab === 'myCircles'
-              ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-              : 'bg-primary-600 text-white hover:bg-primary-700'
-          }`}
-          aria-label={activeTab === 'myCircles' ? `View ${circle.name}` : `Join ${circle.name}`}
-        >
-          {activeTab === 'myCircles' ? 'View Circle' : 'Join Circle'}
-        </button>
+        <div className="flex gap-2 mt-auto">
+          {activeTab === 'myCircles' ? (
+            <>
+              <button onClick={onEdit} className="py-2 px-3 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-neutral-200 text-sm">Edit</button>
+              <button onClick={onDelete} className="py-2 px-3 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm">Delete</button>
+            </>
+          ) : (
+            <button className="py-2 px-4 rounded-lg bg-primary-600 text-white hover:bg-primary-700 text-sm">Join Circle</button>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -225,8 +252,8 @@ function HabitCircles() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            {(activeTab === 'myCircles' ? myCircles : discoverCircles).map((circle) => (
-              <CircleCard key={circle.id} circle={circle} />
+            {(activeTab === 'myCircles' ? myCirclesState : discoverCircles).map((circle) => (
+              <CircleCard key={circle.id} circle={circle} onEdit={() => handleEditCircle(circle)} onDelete={() => handleDeleteCircle(circle.id)} />
             ))}
           </motion.div>
         )}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlusCircle, ListChecks, Flame, Trophy, Clock, LogOut, MessageCircle } from 'lucide-react';
+import NotificationsDropdown from '../components/NotificationsDropdown';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import HabitCard from '../components/HabitCard';
@@ -8,6 +9,7 @@ import AddHabitModal from '../components/AddHabitModal';
 import useHabits from '../hooks/useHabits.jsx';
 import MissedStreakModal from '../components/MissedStreakModal';
 import HabitGraph from '../components/HabitGraph';
+
 
 const StatsCard = ({ title, value, icon, color }) => (
   <motion.div
@@ -46,12 +48,16 @@ function Dashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [user, setUser] = useState(null);
+  const [notifications, setNotifications] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sm_notifications') || '[]'); } catch { return []; }
+  });
   const [error, setError] = useState(null);
   const [showMissedModal, setShowMissedModal] = useState(false);
   const [selectedHabitId, setSelectedHabitId] = useState(null);
+  const [selectedHabitName, setSelectedHabitName] = useState('');
+  const [latestMotivation, setLatestMotivation] = useState(null);
   const [motivation, setMotivation] = useState('');
-  const [motivationHistory, setMotivationHistory] = useState([]);
-  const [globalMotivationHistory, setGlobalMotivationHistory] = useState([]);
+  const [submittedMissedIds, setSubmittedMissedIds] = useState([]);
   const navigate = useNavigate();
   const { habits, completedToday, streakCount, longestStreak, loading, error: habitsError, refetch } = useHabits();
 
@@ -78,54 +84,88 @@ function Dashboard() {
   }, [navigate]);
 
 
-  // Fetch global missed streak motivation history
-  const fetchGlobalMotivationHistory = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/streaks/missed', {
-        headers: { Authorization: `Bearer ${token}` },
+  
+
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
+
+  // Listen for scheduled notifications dispatched by the habit scheduler
+  useEffect(() => {
+    const handler = (e) => {
+      const detail = e.detail;
+      setNotifications(prev => {
+        const next = [detail, ...prev].slice(0, 100);
+        localStorage.setItem('sm_notifications', JSON.stringify(next));
+        return next;
       });
-      const data = await res.json();
-      if (data.success) setGlobalMotivationHistory(data.history);
-    } catch (err) {
-      setGlobalMotivationHistory([]);
-    }
+      // also show a small in-app alert briefly
+      // eslint-disable-next-line no-alert
+      // alert(`${detail.habitName}: ${detail.body}`);
+    };
+    window.addEventListener('habitNotification', handler);
+    return () => window.removeEventListener('habitNotification', handler);
   }, []);
 
-  // Fetch missed streak motivation history for a habit (for modal)
-  const fetchMotivationHistory = useCallback(async (habitId) => {
+  // Fetch already-submitted missed reasons so we don't show buttons again
+  const fetchSubmittedMissed = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/streaks/missed/${habitId}`, {
+      if (!token) return;
+      const res = await fetch('http://localhost:5000/api/motivation/history', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (data.success) setMotivationHistory(data.history);
+      if (data.success && Array.isArray(data.history)) {
+        const ids = data.history.map(h => (h.habitId ? String(h.habitId) : null)).filter(Boolean);
+        setSubmittedMissedIds(prev => Array.from(new Set([...prev, ...ids])));
+      }
     } catch (err) {
-      setMotivationHistory([]);
+      // ignore
     }
   }, []);
 
   useEffect(() => {
-    fetchUser();
-    fetchGlobalMotivationHistory();
-  }, [fetchUser, fetchGlobalMotivationHistory]);
+    // after user info is loaded, fetch submitted missed entries
+    if (user) fetchSubmittedMissed();
+  }, [user, fetchSubmittedMissed]);
 
 
   // Handler for missed streak modal open
   const handleMissedStreak = (habitId) => {
+    const habit = habits.find(h => h._id === habitId);
     setSelectedHabitId(habitId);
+    setSelectedHabitName(habit ? habit.name : '');
     setShowMissedModal(true);
     setMotivation('');
-    fetchMotivationHistory(habitId);
   };
 
 
   // Handler for AI motivation response
-  const handleMotivation = (aiResponse) => {
-    setMotivation(aiResponse);
-    fetchMotivationHistory(selectedHabitId);
-    fetchGlobalMotivationHistory();
+  const handleMotivation = async (habitId, habitName, reason) => {
+    const token = localStorage.getItem('token');
+    const res = await fetch('http://localhost:5000/api/motivation/missed', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ habitId, userExplanation: reason }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      // Backend returns aiReply separately and saves only the user's reason in history
+      setLatestMotivation({
+        habitId,
+        habitName: data.entry ? data.entry.habitName || habitName : habitName,
+        userExplanation: data.entry ? data.entry.userExplanation : reason,
+        aiReply: data.aiReply || (data.entry && data.entry.aiReply) || '',
+        date: data.entry ? data.entry.date : new Date().toISOString()
+      });
+  // Hide the missed button for this habit after submission
+  setSubmittedMissedIds(prev => Array.from(new Set([...prev, String(habitId)])));
+    }
+    setShowMissedModal(false);
   };
 
   const handleLogout = () => {
@@ -201,6 +241,7 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-neutral-50 pt-16 pb-8">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+  {/* NOTE: Latest motivation is now displayed near the Missed Streak / Habits section */}
         {/* Header */}
         <motion.div
           className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4"
@@ -216,14 +257,17 @@ function Dashboard() {
               {format(new Date(), 'EEEE, MMMM d, yyyy')} · Keep your streaks alive
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex items-center gap-2"
-            aria-label="Logout"
-          >
-            <LogOut size={18} />
-            <span>Logout</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <NotificationsDropdown notifications={notifications} onClear={() => { setNotifications([]); localStorage.removeItem('sm_notifications'); }} />
+            <button
+              onClick={handleLogout}
+              className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex items-center gap-2"
+              aria-label="Logout"
+            >
+              <LogOut size={18} />
+              <span>Logout</span>
+            </button>
+          </div>
         </motion.div>
 
         {/* Stats Cards */}
@@ -300,16 +344,15 @@ function Dashboard() {
           </h3>
           <div className="flex flex-wrap gap-2 mb-2">
             {habits.map(habit => {
-              // Calculate yesterday's date in YYYY-MM-DD
               const yesterday = new Date();
               yesterday.setDate(yesterday.getDate() - 1);
               const yestStr = format(yesterday, 'yyyy-MM-dd');
-              // Only allow if habit was created before yesterday
               const createdAt = new Date(habit.createdAt);
               const eligible = createdAt < new Date(yesterday.setHours(0,0,0,0));
-              // Check if habit was NOT completed yesterday
               const missedYesterday = !habit.completedDates.includes(yestStr);
-              return (missedYesterday && eligible) ? (
+              // hide button if user already submitted a reason for this habit
+              const alreadySubmitted = submittedMissedIds.includes(String(habit._id));
+              return (missedYesterday && eligible && !alreadySubmitted) ? (
                 <button
                   key={habit._id}
                   className="px-3 py-1 rounded bg-primary-100 text-primary-700 hover:bg-primary-200 text-sm font-medium"
@@ -323,7 +366,6 @@ function Dashboard() {
               const yesterday = new Date();
               yesterday.setDate(yesterday.getDate() - 1);
               const yestStr = format(yesterday, 'yyyy-MM-dd');
-              // Only count as "no missed" if not eligible or completed
               const createdAt = new Date(habit.createdAt);
               const eligible = createdAt < new Date(yesterday.setHours(0,0,0,0));
               return !eligible || habit.completedDates.includes(yestStr);
@@ -331,29 +373,12 @@ function Dashboard() {
               <span className="text-neutral-500 text-sm">No missed streaks for yesterday! 🎉</span>
             )}
           </div>
-          {motivation && (
-            <motion.div
-              className="bg-white border border-primary-100 rounded-lg p-4 mb-2 shadow-soft"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="font-semibold text-primary-700 mb-1">AI Motivation:</div>
-              <div className="text-neutral-800">{motivation}</div>
-            </motion.div>
-          )}
-          {globalMotivationHistory.length > 0 && (
-            <div className="mt-2">
-              <div className="font-semibold text-neutral-700 mb-1">Global Motivation History:</div>
-              <ul className="space-y-2">
-                {globalMotivationHistory.map((item, idx) => (
-                  <li key={item._id || idx} className="bg-neutral-50 border border-neutral-200 rounded p-3">
-                    <div className="text-xs text-neutral-500 mb-1">{new Date(item.createdAt).toLocaleString()} - <span className="font-semibold">{item.habitName}</span></div>
-                    <div className="text-sm text-neutral-700 mb-1"><span className="font-semibold">You:</span> {item.explanation}</div>
-                    <div className="text-sm text-primary-700"><span className="font-semibold">AI:</span> {item.aiResponse}</div>
-                  </li>
-                ))}
-              </ul>
+          {/* Latest motivation displayed next to the missed streak buttons */}
+          {latestMotivation && latestMotivation.habitId === selectedHabitId && (
+            <div className="bg-white border border-primary-100 rounded-lg p-3 mt-3 shadow-soft max-w-md">
+              <div className="text-sm text-neutral-600 mb-1"><strong>Habit:</strong> {latestMotivation.habitName}</div>
+              <div className="text-sm text-neutral-700 mb-1"><strong>Your Reason:</strong> {latestMotivation.userExplanation}</div>
+              <div className="text-sm text-primary-700"><strong>AI Reply:</strong> {latestMotivation.aiReply}</div>
             </div>
           )}
         </div>
@@ -362,8 +387,10 @@ function Dashboard() {
           open={showMissedModal}
           onClose={() => setShowMissedModal(false)}
           habitId={selectedHabitId}
+          habitName={selectedHabitName}
           onMotivation={handleMotivation}
         />
+  {/* Motivation History button removed per request; history is accessible near each habit's missed-streak actions */}
 
         {habits.length === 0 ? (
           <motion.div

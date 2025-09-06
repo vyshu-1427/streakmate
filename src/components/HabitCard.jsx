@@ -48,6 +48,11 @@ function HabitCard({ habit, selectedDate, refetch }) {
             <p className="text-sm text-neutral-500">
               {habit.frequency === 'daily' ? 'Daily' : `${habit.target}x per week`}
             </p>
+            {habit.timeFrom && habit.timeTo ? (
+              <p className="text-xs text-neutral-400">Time: {habit.timeFrom} - {habit.timeTo}</p>
+            ) : habit.time ? (
+              <p className="text-xs text-neutral-400">Time: {habit.time}</p>
+            ) : null}
             {habit.description && (
               <p className="text-xs text-neutral-400 italic max-w-[200px] truncate">{habit.description}</p>
             )}
@@ -98,10 +103,16 @@ function HabitCard({ habit, selectedDate, refetch }) {
             <p className="mb-4 text-center text-neutral-700">Are you sure you want to delete <span className="font-bold">{habit.name}</span>?</p>
             <div className="flex gap-2">
               <button className="btn bg-neutral-100 text-neutral-700" onClick={() => setShowConfirm(false)}>Cancel</button>
-              <button className="btn bg-red-500 text-white" onClick={() => { 
-                deleteHabit(habit._id); 
+              <button className="btn bg-red-500 text-white" onClick={async () => { 
+                const ok = await deleteHabit(habit._id); 
                 setShowConfirm(false); 
-                refetch(); 
+                if (ok) {
+                  refetch();
+                } else {
+                  // simple inline feedback; can be replaced with a nicer toast
+                  // eslint-disable-next-line no-alert
+                  alert('Failed to delete habit. Please try again.');
+                }
               }}>Delete</button>
             </div>
           </div>

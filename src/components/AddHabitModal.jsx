@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { Flame, Book, Dumbbell, Coffee, FileText, Brain } from 'lucide-react';
 
 const iconOptions = [
@@ -16,13 +15,19 @@ const AddHabitModal = ({ open, onClose, onAdd }) => {
     name: '',
     description: '',
     frequency: 'daily',
-    target: 1,
+    timeFrom: '',
+    timeTo: '',
     icon: iconOptions[0],
   });
+  const [timeError, setTimeError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setHabitData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'timeFrom' || name === 'timeTo') {
+      // clear previous error when user updates times
+      setTimeError('');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -32,7 +37,8 @@ const AddHabitModal = ({ open, onClose, onAdd }) => {
       name: habitData.name,
       description: habitData.description,
       frequency: habitData.frequency,
-      target: Number(habitData.target),
+  timeFrom: habitData.timeFrom,
+  timeTo: habitData.timeTo,
       icon: habitData.icon?.value || 'Flame',
       streak: 0,
       completedDates: [],
@@ -43,28 +49,35 @@ const AddHabitModal = ({ open, onClose, onAdd }) => {
         throw new Error('Missing required fields: name, frequency');
     }
 
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found. Please log in.');
+    // validate time range if both provided
+    if (habitData.timeFrom && habitData.timeTo) {
+      const [fh, fm] = habitData.timeFrom.split(':').map(Number);
+      const [th, tm] = habitData.timeTo.split(':').map(Number);
+      if (isNaN(fh) || isNaN(fm) || isNaN(th) || isNaN(tm)) {
+        setTimeError('Invalid time format');
+        return;
       }
-      const res = await axios.post('http://localhost:5000/api/habits', newHabit, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      onAdd(res.data);
+      if (fh > th || (fh === th && fm > tm)) {
+        setTimeError('Start time must be before or equal to end time');
+        return;
+      }
+    }
+
+    try {
+      // Delegate the server POST to the parent handler (Dashboard.handleAddHabit)
+      await onAdd(newHabit);
       setHabitData({
         name: '',
         description: '',
         frequency: 'daily',
-        target: 1,
+        timeFrom: '',
+        timeTo: '',
         icon: iconOptions[0],
       });
+      setTimeError('');
       onClose();
     } catch (err) {
-      console.error('Error adding habit:', err);
+      console.error('Error adding habit (parent handler):', err);
       alert(err.message || 'Failed to add habit. Please try again.');
     }
   };
@@ -114,21 +127,33 @@ const AddHabitModal = ({ open, onClose, onAdd }) => {
 
           <div className="flex gap-2">
             <input
-              type="number"
-              name="target"
-              placeholder="Target Days"
-              value={habitData.target}
+              type="time"
+              name="timeFrom"
+              placeholder="Start time"
+              value={habitData.timeFrom}
               onChange={handleChange}
-              min={1}
-              required
               className="w-1/2 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 
+            <input
+              type="time"
+              name="timeTo"
+              placeholder="End time (optional)"
+              value={habitData.timeTo}
+              onChange={handleChange}
+              className="w-1/2 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {timeError && (
+            <p className="text-sm text-red-500 mt-1">{timeError}</p>
+          )}
+
+          <div className="mt-2">
             <select
               name="frequency"
               value={habitData.frequency}
               onChange={handleChange}
-              className="w-1/2 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>

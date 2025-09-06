@@ -88,7 +88,7 @@ const getHabits = async (req, res) => {
 };
 
 const createHabit = async (req, res) => {
-  const { name, description, frequency, target, icon } = req.body;
+  const { name, description, frequency, target, icon, time, timeFrom, timeTo } = req.body;
   try {
     validateInput(req.body, ['name', 'frequency']);
     const habitData = {
@@ -97,6 +97,10 @@ const createHabit = async (req, res) => {
       description: description || '',
       frequency,
       target: frequency === 'weekly' ? target || 1 : 1,
+      // support both single time and range
+      time: time || '',
+      timeFrom: timeFrom || '',
+      timeTo: timeTo || '',
       icon: icon || 'Flame', // Default to 'Flame' if icon is not provided
       completedDates: [],
       streak: 0,
